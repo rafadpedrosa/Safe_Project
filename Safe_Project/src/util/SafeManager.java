@@ -509,15 +509,20 @@ public class SafeManager {
 	//		else if(originalNode.existsThread(thread)){
 	//			return (SafeNode) originalNode;
 	//		}
-	//		SafeNode node = (SafeNode) tree.getChild(originalNode,0);
-	//		for (int i = 0; i < tree.getChildCount(originalNode); i++) {
+	//      if(originalNode.getChildCount() != 0){
+	//			SafeNode node = (SafeNode) tree.getChild(originalNode,0);
+	//			for (int i = 0; i < tree.getChildCount(originalNode); i++) {
 	//
-	//			node = (SafeNode) tree.getChild(originalNode, i);
-	//			if(node.existsThread(thread)){
-	//				return node;
-	//			}
+	//				node = (SafeNode) tree.getChild(originalNode, i);
+	//				if(node.existsThread(thread)){
+	//					return node;
+	//				}
 	//		}
-	//		return getSafe(node,thread);
+	//			return getSafe(node,thread);
+	//		}
+	//      else{
+	//      	return null;
+	//      }
 	//	}
 
 	private static void createGetSafe(List<BodyDecl> retorno) {
@@ -525,7 +530,7 @@ public class SafeManager {
 		Modifiers listaModifiers = new Modifiers();
 		listaModifiers.addModifier(modPublic());
 		Block mainBlock = new Block();
-
+		
 		List<ParameterDeclaration> parameters = 
 				new List<ParameterDeclaration>();
 
@@ -534,12 +539,33 @@ public class SafeManager {
 		parameters.add(new ParameterDeclaration(
 				threadType(),"thread"));
 
+		//		if(originalNode == null){
+		//			return null;
+		//		}
+		//		else if(originalNode.existsThread(thread)){
+		//			return (SafeNode) originalNode;
+		//		}
 		IfStmt ifOriginalIsNull = getIfStmtGetSafe();
-
 		mainBlock.addStmt(ifOriginalIsNull);
+		
+		IfStmt ifChildCount = getIfStmtGetSafeCount();
+		mainBlock.addStmt(ifChildCount);
 
+		Opt<Block> mainOpt = new Opt<Block>();
+		mainOpt.addChild(mainBlock);
+
+		MethodDecl method = new MethodDecl(listaModifiers,
+				safeType(),"getSafe",parameters,
+				new List<Access>(),mainOpt);
+
+		retorno.add(method);
+	}
+	private static Block getSafeIfChildCountBlock() {
+		
+		Block ifBlock = new Block();
+		//			SafeNode node = (SafeNode) tree.getChild(originalNode,0);
 		VariableDeclaration setNode = getSetNode();
-		mainBlock.addStmt(setNode);
+		ifBlock.addStmt(setNode);
 
 		List<Stmt> listVariableInitFor = new List<Stmt>();
 		
@@ -552,7 +578,7 @@ public class SafeManager {
 		ForStmt forStmt = new ForStmt(listVariableInitFor,
 				getListCondictionFor(),getListDoFor(),getBlockFor());
 
-		mainBlock.addStmt(forStmt);
+		ifBlock.addStmt(forStmt);
 
 		List<Expr> returnParameters = new List<Expr>();
 		returnParameters.add(nodeAc());
@@ -560,16 +586,10 @@ public class SafeManager {
 		ReturnStmt returnStmt = new ReturnStmt(
 				new MethodAccess("getSafe",returnParameters));
 
-		mainBlock.addStmt(returnStmt);
-
-		Opt<Block> mainOpt = new Opt<Block>();
-		mainOpt.addChild(mainBlock);
-
-		MethodDecl method = new MethodDecl(listaModifiers,
-				safeType(),"getSafe",parameters,
-				new List<Access>(),mainOpt);
-
-		retorno.add(method);
+		ifBlock.addStmt(returnStmt);
+		
+		return ifBlock;
+		
 	}
 	/**
 	 * method to createGetSafe.
@@ -688,5 +708,40 @@ public class SafeManager {
 		//if(originalNode == null){...}
 		return new IfStmt(eqExpr,blockOriginalNull,elseStmt);
 	}
+	
+	    //if(originalNode.getChildCount() != 0){
+		//			SafeNode node = (SafeNode) tree.getChild(originalNode,0);
+		//			for (int i = 0; i < tree.getChildCount(originalNode); i++) {
+		//
+		//				node = (SafeNode) tree.getChild(originalNode, i);
+		//				if(node.existsThread(thread)){
+		//					return node;
+		//				}
+		//		}
+		//			return getSafe(node,thread);
+		//		}
+		//      else{
+		//      	return null;
+		//      }
+		private static IfStmt getIfStmtGetSafeCount() {
+			
+			Block blocoIf = getSafeIfChildCountBlock();
+			
+			//originalNode.getChildCount() != 0
+			NEExpr neExpr = new NEExpr(new Dot(new VarAccess("originalNode"),
+					new MethodAccess("getChildCount", new List<Expr>())),new IntegerLiteral(0));
+			
+			Opt<Stmt> elseStmt = new Opt<Stmt>();
+
+			//return null;
+			ReturnStmt returnOriginalNull = 
+					new ReturnStmt(new NullLiteral("null"));
+			elseStmt.addChild(returnOriginalNull);
+
+
+			//if(originalNode == null){...}
+			return new IfStmt(neExpr,blocoIf,elseStmt);
+		}
+	
 
 }
